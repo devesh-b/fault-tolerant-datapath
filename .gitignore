@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+build/
+target/
+*.log
+*.jou
+*.str
+vivado*/
+.Xil/
+obj_dir/
+_sby/
+*.vcd
+*.fst
+papers/*.pdf
+
+# Phase 0 brief lives outside the repo (~/MSc_Prep/briefs/)
+BRIEF.md
+READING.md
