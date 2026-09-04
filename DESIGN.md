@@ -159,14 +159,19 @@ Yosys 0.68 + ABC, generic cells:
 
 Vivado 2025.2, `xc7a100tcsg324-1`, out-of-context, LUT-only, 10 ns clock:
 
-| design | LUT | FF | CARRY4 | WNS reg→reg | WNS worst |
-|---|---|---|---|---|---|
-| `mpmac_unprot` | 1525 | 48 | 266 | +5.397 | −7.686 |
-| `mpmac_prot` | **1883** | 55 | 273 | **−0.078** | −14.155 |
-| `mpmac_tmr` | 4775 | 144 | 798 | +5.348 | −7.967 |
+| design | LUT | FF | CARRY4 | WNS reg→reg | WNS worst | power (W) |
+|---|---|---|---|---|---|---|
+| `mpmac_unprot` | 1525 | 48 | 266 | +5.397 | −7.686 | 0.106 |
+| `mpmac_prot` | **1883** | 55 | 273 | **−0.078** | −14.155 | 0.123 |
+| `mpmac_tmr` | 4775 | 144 | 798 | +5.348 | −7.967 | 0.152 |
+
+Power is a **vectorless** estimate — no switching-activity file, so the figures
+are only meaningful against each other, not as absolute numbers. On that basis
+protection costs +16% power against TMR's +43%, which tracks the area ratio
+rather than adding anything new.
 
 **On real fabric the protection costs +23.5% LUTs against TMR's +213%** — a 9×
-cheaper way to buy most of the coverage. That is the low-overhead claim made
+cheaper way to buy most of the coverage, and +16% power against +43%. That is the low-overhead claim made
 concrete on hardware someone else can re-synthesise.
 
 ### The knee is timing, not area

@@ -4,7 +4,7 @@
 set part xc7a100tcsg324-1
 set designs [list mpmac_unprot mpmac_prot mpmac_tmr]
 set fh [open "ooc_results.txt" w]
-puts $fh [format "%-14s %7s %7s %8s %11s %11s" design LUT FF CARRY4 "WNS_r2r" "WNS_all"]
+puts $fh [format "%-14s %7s %7s %8s %11s %11s %10s" design LUT FF CARRY4 "WNS_r2r" "WNS_all" "Power_W"]
 foreach top $designs {
   read_verilog -sv [list ../rtl/adders.v ../rtl/mpmac.v ../rtl/res3.v \
                          ../rtl/secded.v ../rtl/mpmac_prot.v]
@@ -20,7 +20,15 @@ foreach top $designs {
   set_output_delay -clock clk 0.000 [all_outputs]
   set p2  [get_timing_paths -delay_type max -max_paths 1]
   set w2  [expr {[llength $p2] ? [get_property SLACK $p2] : "n/a"}]
-  puts $fh [format "%-14s %7d %7d %8d %11s %11s" $top $lut $ff $cy $w1 $w2]
+  # vectorless power estimate: no switching activity file, so this is a
+  # relative comparison between designs, not an absolute figure
+  set pw "n/a"
+  if {![catch {report_power -return_string} pr]} {
+    foreach ln [split $pr "\n"] {
+      if {[regexp {Total On-Chip Power \(W\)\s*\|\s*([0-9.]+)} $ln -> v]} { set pw $v }
+    }
+  }
+  puts $fh [format "%-14s %7d %7d %8d %11s %11s %10s" $top $lut $ff $cy $w1 $w2 $pw]
   flush $fh
   close_design
 }
