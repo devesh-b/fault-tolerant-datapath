@@ -1,0 +1,7 @@
+site   trials  masked  corrected  detected  ESCAPED(SDC)   escape%   mean lat
+-----------------------------------------------------------------------------
+ACC     4000       0       4000         0             0     0.00%   see below
+ECC     4000       0       4000         0             0     0.00%   see below
+OPA     4000     115          0      2651          1234    30.85%   see below
+PROD    4000       0          0      4000             0     0.00%   see below
+

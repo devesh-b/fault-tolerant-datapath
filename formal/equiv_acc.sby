@@ -1,0 +1,23 @@
+[options]
+mode bmc
+depth 1
+
+[engines]
+smtbmc z3
+
+[script]
+read -formal adders.v
+read -formal mpmac.v
+read -formal res3.v
+read -formal secded.v
+read -formal mpmac_prot.v
+read -formal miter_acc.v
+prep -top miter_acc
+
+[files]
+miter_acc.v
+../rtl/adders.v
+../rtl/mpmac.v
+../rtl/res3.v
+../rtl/secded.v
+../rtl/mpmac_prot.v

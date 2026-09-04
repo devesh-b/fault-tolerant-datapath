@@ -1,0 +1,4 @@
+design             LUT      FF   CARRY4     WNS_r2r     WNS_all
+mpmac_unprot      1525      48      266       5.397      -7.686
+mpmac_prot        1883      55      273      -0.078     -14.155
+mpmac_tmr         4775     144      798       5.348      -7.967
