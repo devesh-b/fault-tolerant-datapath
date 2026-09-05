@@ -279,18 +279,18 @@ defensible if the island is small enough that hardening it is cheap:
 
 | module | cells (ABC) | FF | share of `mpmac_ondemand` |
 |---|---|---|---|
-| `fault_monitor` | **137** | 36 | **1.8%** |
-| `mpmac_unprot` | 4684 | 48 | — |
+| `fault_monitor` | **142** | 36 | **1.9%** |
+| `mpmac_unprot` | 4682 | 48 | — |
 | `mpmac_prot` | 7066 | 55 | — |
-| `mpmac_ondemand` | 7422 | 178 | 100% |
+| `mpmac_ondemand` | 7366 | 178 | 100% |
 
-Triplicating the monitor would cost roughly 274 extra cells — **under 4% of the
+Triplicating the monitor would cost roughly 284 extra cells — **under 4% of the
 design** — against 3.29× for triplicating everything. That is the DeSyRe
 argument reduced to two numbers on a real design: you can make the part that
 decides genuinely fault-free for the price of a rounding error, precisely
 because it decides rather than computes.
 
-Adaptivity itself costs +5% over fixed Phase-1 protection (7422 against 7066).
+Adaptivity itself costs +4.2% over fixed Phase-1 protection (7366 against 7066).
 
 ### Framing it as reconfiguration
 

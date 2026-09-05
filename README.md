@@ -43,7 +43,7 @@ they are not.
 - **Double-execute records zero silent corruptions at every fault density
   tested** — temporal redundancy closes the blind spot residue mod 3
   structurally cannot reach.
-- **The controller is 1.8% of the design** (137 cells against 7422), so
+- **The controller is 1.9% of the design** (142 cells against 7366), so
   triplicating it costs under 4% against 3.29× for triplicating everything.
   That is DeSyRe's premise as two numbers rather than an assertion.
 - **Two results came out against the design.** Running unprotected is never
