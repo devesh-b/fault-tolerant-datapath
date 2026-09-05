@@ -8,6 +8,11 @@ triple-modular redundancy.
 **Hamming SEC-DED** repairs the 48-bit accumulator file. TMR is built too, but
 only to anchor the top of the overhead axis.
 
+**New here?** [TUTORIAL.md](TUTORIAL.md) explains everything in this repository
+from first principles — why bits flip, parity and Hamming codes worked through by
+hand, residue checking, fault injection, and every result — assuming no prior
+background in reliability engineering.
+
 Full design notes, campaign results and analysis: **[DESIGN.md](DESIGN.md)**.
 The datapath being protected lives in
 [multiprecision-datapath](https://github.com/devesh-b/multiprecision-datapath);
