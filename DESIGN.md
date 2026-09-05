@@ -378,6 +378,92 @@ and not the lane width — it is protecting the bits, which is what the rest of
 this repository does. Inexactness buys area and throughput, and it should be
 argued for on those grounds rather than on robustness it does not deliver.
 
+## Phase 3 — ABFT on a PE array
+
+Phases 1 and 2 protect one arithmetic unit. A DNN accelerator is an *array* of
+them, and protecting each one separately is the expensive way to do it.
+`rtl/pe_array.v` puts P processing elements behind two checksum rows:
+
+```
+wc0[j] = Σ_p     W[p][j]        →  yc0 = Σ_p y[p]
+wc1[j] = Σ_p (p+1) W[p][j]      →  yc1 = Σ_p (p+1) y[p]
+```
+
+Both identities hold exactly in the mod-2^48 arithmetic the accumulators already
+use, so the syndromes `d0 = yc0 − Σy[p]` and `d1 = yc1 − Σ(p+1)y[p]` are zero iff
+every PE agrees. A single faulty PE `q` with error `e` gives `d0 = −e` and
+`d1 = −(q+1)e`, which locates and repairs it. This is Huang–Abraham ABFT, the
+structure FT-CNN applies per convolution layer, applied here per PE array.
+
+### Campaign: 3000 transients, one per trial, into a random PE
+
+| outcome | result |
+|---|---|
+| detected | **3000 / 3000 — 100%** |
+| undetected corruption | **0** |
+| located correctly | 2967 — 98.90% |
+| location ambiguous | 59 — 1.97% |
+| PE restored exactly | 2967 — 98.90% |
+
+**Detection is perfect and free.** Every injected fault moved a syndrome.
+
+### Location is not, and it fails on exactly the worst faults
+
+Correction should have removed almost all the damage. It removed about half:
+
+| | mean \|error\| per output |
+|---|---|
+| unprotected | 1.053e-02 |
+| after ABFT correction | 5.500e-03 |
+| ABFT detect + re-execute | **0** |
+
+Every one of the 33 mislocations came from **bit 47** — the accumulator's top
+bit. When `e = ±2^47`, `(q+1)·d0 mod 2^48` takes the same value for every odd
+`q+1`, so candidates 0 and 2 are indistinguishable and the tie is broken by a
+coin flip. Those are also the *largest* errors the accumulator can suffer, so
+1.97% of trials carry roughly half the total damage, and mislocating them adds
+error to a healthy PE while leaving the sick one uncorrected.
+
+This is the mod-2^48 analogue of the mod-3 blind spot from Phase 1, and it has
+the same structural cause: **the modulus shares factors with the error.** No
+amount of tuning fixes it, and a third checksum row does not either — the
+information is not in the syndromes. What works is temporal: detect with ABFT,
+then re-execute. The transient is gone on the second pass, residual error is
+zero, and the cost is a second pass *only on a detection*.
+
+### Does ABFT amortise?
+
+The reason to checksum an array rather than harden each PE is that the checksum
+cost is two PEs regardless of P. Measured:
+
+| P | bare array | with ABFT | per-PE protected | ABFT overhead | per-PE overhead |
+|---|---|---|---|---|---|
+| 4 | 19024 | 29360 | 28264 | 54% | 48% |
+| 8 | 38048 | 52078 | 56528 | **36%** | 48% |
+| 16 | 76096 | 97628 | 113056 | **28%** | 48% |
+
+![abft](results/abft.png)
+
+It amortises — 54% → 28% — but **not as 2/P**, which would be 50% → 12.5%. The
+two checksum PEs are constant; the *syndrome tree* is not. Summing P 48-bit
+accumulators with weights 1…P costs about 15% of the array at P=16, more than
+the checksum PEs themselves. Computing the syndrome serially over the P outputs
+would trade that area back for cycles and is not done here.
+
+**The crossover against per-PE protection is at P = 8.** Below that, hardening
+each PE with the Phase-1 scheme is cheaper; above it, ABFT wins and keeps
+winning. For a DNN accelerator, where arrays are far wider than 8, that is the
+answer — and it is why FT-CNN works at layer granularity rather than per
+multiplier.
+
+### A constraint worth stating
+
+The checksum rows must be representable in the same 16 bits as the data, and
+`Σ(p+1)W[p][j]` bounds the usable weight precision: 12 bits at P=4, 10 at P=8,
+8 at P=16. **ABFT buys cheap redundancy and pays for it in dynamic range**, which
+is a real cost for a quantised accelerator and the reason FT-CNN works in
+floating point.
+
 ## Honest limits
 
 - **Single faults only.** One flip per trial. The scheme is a single-error
@@ -405,6 +491,11 @@ argued for on those grounds rather than on robustness it does not deliver.
   split and would move both the accuracy and the robustness numbers.
 - **All three levels are resident.** Partial reconfiguration is the framing, not
   something demonstrated.
+- **The PE array is a matrix-vector engine, not a convolution.** Real layers
+  reshape and reuse data; the ABFT identities hold regardless, but the overhead
+  numbers would move with the dataflow.
+- **The syndrome tree is combinational and unpipelined.** It is the part of the
+  ABFT cost that scales with P, and the obvious thing to fix first.
 
 ## Layout
 

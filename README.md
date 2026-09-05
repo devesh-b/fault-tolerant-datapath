@@ -75,6 +75,26 @@ should be argued for on those grounds, not on robustness it does not deliver.
 
 ![robustness](results/robustness.png)
 
+## Phase 3 — ABFT on a PE array
+
+Protecting an array of MACs with two checksum rows instead of hardening every
+element, which is what a DNN accelerator actually needs.
+
+- **Detection is perfect and free**: 3000/3000 transients caught, zero silent
+  corruptions.
+- **Location is not.** Every mislocation came from accumulator bit 47: when the
+  error is 2^47, the weighted syndrome collapses and two candidate PEs become
+  indistinguishable. Those are also the largest errors, so 2% of trials carry
+  half the damage and ABFT correction only halves the residual error. This is
+  the mod-2^48 analogue of the mod-3 blind spot — same cause, the modulus
+  sharing factors with the error. Detect-then-re-execute takes it to zero.
+- **ABFT amortises, but not as 2/P** — 54% at P=4 down to 28% at P=16, because
+  the syndrome tree scales with P even though the checksum PEs do not. It
+  crosses under per-PE protection at **P=8**, which is why layer-level ABFT is
+  the right granularity for an accelerator.
+
+![abft](results/abft.png)
+
 ## Requirements
 
 - Yosys 0.68+ with ABC, SymbiYosys, z3 — all in the

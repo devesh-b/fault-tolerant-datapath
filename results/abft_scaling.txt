@@ -1,0 +1,8 @@
+one unprotected PE : 4756 cells
+one protected PE   : 7066 cells  (+48%, Phase-1 scheme)
+
+P          bare       ABFT     per-PE    ABFT over    per-PE over
+---------------------------------------------------------------------------
+4         19024      29360      28264          54%            48%
+8         38048      52078      56528          36%            48%
+16        76096      97628     113056          28%            48%

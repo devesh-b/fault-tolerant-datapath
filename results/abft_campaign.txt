@@ -1,0 +1,15 @@
+PE array with ABFT, P = 4, dot-product length 32, 3000 trials
+  faults injected      : 3000
+  detected             : 3000  (100.00%)
+  located correctly    : 2967  (98.90% of detected)
+  PE restored exactly  : 2967  (98.90%)
+  UNDETECTED corruption: 0
+  mean |error| per output, unprotected : 1.053323e-02
+  mean |error| per output, after ABFT  : 5.500000e-03
+  mean |error| per output, detect+rerun : 0.000000e+00
+  re-executions triggered              : 3000  (100.00% of trials)
+  location ambiguous (>1 candidate matched): 59  (1.97%)
+
+  mislocation by injected accumulator bit:
+    bit  injected  mislocated
+     47        59          33
