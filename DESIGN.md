@@ -301,6 +301,83 @@ region rather than the arithmetic, keeping the expensive multiplier array
 resident. Nothing here is reconfigured at runtime — the levels are all resident
 and selected — so this is the framing, not a demonstration of it.
 
+## Does inexactness buy robustness?
+
+The approximate-computing literature and the reliability literature meet at a
+claim that gets repeated loosely: that lower precision, or a tapered format, is
+somehow kinder under soft errors. `model/robustness.py` measures it, and the
+answer is no on both counts.
+
+Damage is measured as the absolute perturbation in units of **full scale**, not
+relative to the value. Relative error diverges for small fixed-point values and
+would flatter the floating formats for reasons that have nothing to do with
+reliability. What a downstream computation feels is the absolute perturbation.
+
+![robustness](results/robustness.png)
+
+### Format, at a fixed 16 bits
+
+Every bit of every encoding flipped, values drawn uniformly from [-1, 1):
+
+| format | median | p99 | worst | P(damage > full scale) |
+|---|---|---|---|---|
+| fixed Q1.15 | 5.86e-03 | 1.00e+00 | **1.00e+00** | **0.0%** |
+| IEEE binary16 | 3.74e-02 | 5.49e+04 | 6.55e+04 | 10.8% |
+| posit(16,1) | 1.56e-02 | 1.90e+02 | **2.68e+08** | 12.5% |
+
+**Fixed point's damage is structurally bounded by full scale.** There is no bit
+you can flip that moves the value further than the format's own range, because
+every bit has a fixed weight. Both floating formats are unbounded: flipping an
+exponent bit multiplies the value, and flipping a posit regime bit multiplies it
+a great deal more — posit's worst case is 4000× worse than binary16's, and lands
+exactly on `maxpos = useed^(n-2) = 2^28`.
+
+**This inverts the accuracy ranking.** On accuracy over a bounded workload the
+order was fixed, posit, binary16. On robustness it is fixed, binary16, posit.
+Posit(16,1) buys its accuracy near 1 with a regime field whose corruption is
+catastrophic — the same encoding decision, read from the other side.
+
+For safety-critical inference that is the more important column, and it is an
+argument for fixed point that has nothing to do with area.
+
+### Precision, per value
+
+| mode | bits | median damage | worst |
+|---|---|---|---|
+| `M16` | 16 | 5.86e-03 | 1.00 |
+| `M8` | 8 | 9.38e-02 | 1.00 |
+| `M4` | 4 | 3.75e-01 | 1.00 |
+
+Fewer bits is **worse**, by 64× from 16 to 4. The folklore intuition — fewer
+bits, fewer things to go wrong — is right about the cross-section and wrong
+about the consequence: each remaining bit carries proportionally more of the
+value, and that dominates.
+
+### Partitioning, on the accumulator that exists
+
+The accumulator file is a fixed 48 bits however it is partitioned: 1×48, 2×24 or
+4×12. A flip lands somewhere in those 48 bits and corrupts exactly one lane.
+Narrow lanes contain the fault to a smaller *fraction* of the output vector,
+and do proportionally more damage inside it.
+
+Measured on the RTL (`tb/tb_damage.v`, 20,000 injections per mode):
+
+| mode | lanes × width | output corrupted | damage to that lane | damage to the vector |
+|---|---|---|---|---|
+| `M16` | 1 × 48 | 100% | 0.0395 | **0.0395** |
+| `M8` | 2 × 24 | 50% | 0.0838 | **0.0419** |
+| `M4` | 4 × 12 | 25% | 0.1691 | **0.0423** |
+
+**The two effects cancel exactly**, and the model predicts the cancellation for
+the same reason the measurement finds it: lanes × lane-width is 48 either way.
+Partitioning buys containment and pays for it in severity, at par.
+
+The useful conclusion is that **the bits are the cross-section**. If you want a
+datapath to be less damaged by soft errors, the lever is not the number format
+and not the lane width — it is protecting the bits, which is what the rest of
+this repository does. Inexactness buys area and throughput, and it should be
+argued for on those grounds rather than on robustness it does not deliver.
+
 ## Honest limits
 
 - **Single faults only.** One flip per trial. The scheme is a single-error
@@ -320,8 +397,12 @@ and selected — so this is the framing, not a demonstration of it.
   must observe detections before escalating, so the first faults in a burst are
   met at the lower level. A reactive scheme cannot do better; a predictive one
   would need a fault-rate model this work does not have.
-- **No approximate-arithmetic study.** The approximation-meets-reliability
-  question (does inexactness buy robustness?) is untouched.
+- **The robustness study injects into values, not into a running application.**
+  It measures the perturbation a flip causes, not how far that perturbation
+  propagates through a network or a control loop — which is where an
+  error-tolerant application would actually absorb it.
+- **Posit is tested at (16,1) only.** A different `es` moves the regime/fraction
+  split and would move both the accuracy and the robustness numbers.
 - **All three levels are resident.** Partial reconfiguration is the framing, not
   something demonstrated.
 

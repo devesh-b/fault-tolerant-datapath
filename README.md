@@ -54,6 +54,27 @@ they are not.
 
 ![degradation](results/degradation.png)
 
+## Does inexactness buy robustness?
+
+Measured, because the claim gets repeated loosely. **No, on both counts.**
+
+- **Fixed point's damage from a bit flip is structurally bounded by full scale;
+  binary16 and posit are not.** Posit(16,1)'s worst case is 4000x worse than
+  binary16's, because a corrupted regime field multiplies the value enormously.
+  That *inverts* the accuracy ranking — posit buys accuracy near 1 with an
+  encoding whose corruption is catastrophic.
+- **Fewer bits is worse, by 64x from 16 to 4.** Fewer things to hit, but each
+  one carries more of the value, and that dominates.
+- **Partitioning the accumulator changes nothing.** Narrow lanes corrupt a
+  smaller fraction of the output and do proportionally more damage inside it;
+  measured on the RTL the two cancel at 0.040 either way, because lanes x
+  lane-width is 48 regardless.
+
+The bits are the cross-section. Inexactness buys area and throughput — it
+should be argued for on those grounds, not on robustness it does not deliver.
+
+![robustness](results/robustness.png)
+
 ## Requirements
 
 - Yosys 0.68+ with ABC, SymbiYosys, z3 — all in the
