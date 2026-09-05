@@ -200,6 +200,107 @@ The fix, if frequency matters, is to pipeline the ECC decode out of the loop —
 storing the accumulator pre-decoded and correcting off the critical path. That
 is a real design change, not a tuning knob, and it is not done here.
 
+## Phase 2 — on-demand reliability
+
+Phase 1 hardens the datapath to a fixed level. DeSyRe's actual thesis is
+different: keep a *small* part of the system trustworthy and let it decide how
+much protection the rest needs right now. `rtl/mpmac_ondemand.v` implements
+that.
+
+### Three levels, and a controller that picks between them
+
+| level | policy | cost |
+|---|---|---|
+| **L0** | commit every result; residue reports but nothing acts on it | 2.000 cycles/op |
+| **L1** | retry when the checker fires | 2.015 cycles/op at the worst density measured |
+| **L2** | execute twice and compare, always | 3.000–3.068 cycles/op |
+
+L2 is the interesting one. Two independent evaluations of a *transient*
+disagree whether or not the error happens to be divisible by 3 — so it catches
+the operand-side faults that residue mod 3 structurally cannot. It buys back
+the ~31% escape that Phase 1 cannot reach, at 50% more cycles.
+
+A `fault_monitor` counts detections per 64-cycle window, escalates on the first
+bad window, and relaxes only after four consecutive clean ones. The asymmetry is
+necessary, not decorative: with symmetric thresholds, at a density where about
+half the windows are clean the level random-walks and never reaches where it
+needs to be. The first version did exactly that — mean level 0.46 when it should
+have been at 2.
+
+### Graceful degradation
+
+50,000 operations per point per scheme. Faults arrive in *time* — one bit flip
+somewhere in the unit, at a chosen rate per cycle — so a scheme that buys
+coverage with cycles is exposed for longer and pays twice.
+
+![degradation](results/degradation.png)
+
+Silent corruptions per 1000 operations:
+
+| fault density | L0 | L1 | L2 | adaptive |
+|---|---|---|---|---|
+| none | 0 | 0 | 0 | 0 |
+| 1/3000 | 0.22 | 0.06 | **0** | 0.06 |
+| 1/1000 | 0.62 | 0.08 | **0** | 0.10 |
+| 1/300 | 1.70 | 0.24 | **0** | 0.26 |
+| 1/100 | 4.68 | 0.54 | **0** | 0.52 |
+| 1/30 | 16.96 | 2.70 | **0** | 0.88 |
+
+**L2 records zero silent corruptions at every density tested.** That is the
+headline: temporal redundancy closes the residue blind spot completely.
+
+### Two results that came out against the design
+
+**Running at L0 is never worth it.** L1 costs essentially nothing — retries fire
+only on a detection, and detections are rare — while cutting silent corruption
+about six-fold. The first version of the controller relaxed to L0 and was
+therefore *dominated by simply always running L1*: worse coverage, no cheaper.
+The controller's floor is now L1, and that is a measured conclusion rather than
+a tuning choice. Adaptivity only earns its machinery deciding between L1 and L2.
+
+**Adaptivity does not beat a well-chosen fixed level.** At the highest density
+the adaptive scheme reaches **67% of the way from L1 to L2 in coverage while
+paying 73% of the way in cost** — marginally worse than linear interpolation. If
+you know the fault density in advance, pick the fixed level that suits it and
+you will do slightly better.
+
+The case for adaptivity is therefore *not* efficiency. It is that no fixed level
+is good across the range: L2 wastes a third of the cycles at low density, L1
+leaks 2.7 corruptions per 1000 ops at high density, and the adaptive unit is
+within a factor of a few of the better one at both ends without being told which
+regime it is in. That matters exactly where DeSyRe says it does — ageing,
+radiation, voltage-scaled operation — where the density is not known at design
+time and changes during the device's life.
+
+### Is the fault-free island actually small?
+
+The controller is assumed fault-free. That is DeSyRe's premise, and it is only
+defensible if the island is small enough that hardening it is cheap:
+
+| module | cells (ABC) | FF | share of `mpmac_ondemand` |
+|---|---|---|---|
+| `fault_monitor` | **137** | 36 | **1.8%** |
+| `mpmac_unprot` | 4684 | 48 | — |
+| `mpmac_prot` | 7066 | 55 | — |
+| `mpmac_ondemand` | 7422 | 178 | 100% |
+
+Triplicating the monitor would cost roughly 274 extra cells — **under 4% of the
+design** — against 3.29× for triplicating everything. That is the DeSyRe
+argument reduced to two numbers on a real design: you can make the part that
+decides genuinely fault-free for the price of a rounding error, precisely
+because it decides rather than computes.
+
+Adaptivity itself costs +5% over fixed Phase-1 protection (7422 against 7066).
+
+### Framing it as reconfiguration
+
+The three levels differ only in a commit policy and a retry path — no datapath
+is duplicated, and the L2 machinery is a shadow register plus a comparator. On
+an FPGA the same idea maps to partial reconfiguration: swap the commit-policy
+region rather than the arithmetic, keeping the expensive multiplier array
+resident. Nothing here is reconfigured at runtime — the levels are all resident
+and selected — so this is the framing, not a demonstration of it.
+
 ## Honest limits
 
 - **Single faults only.** One flip per trial. The scheme is a single-error
@@ -215,8 +316,14 @@ is a real design change, not a tuning knob, and it is not done here.
   moduli of the form `2^n − 1`.
 - **No place-and-route.** Post-synthesis timing only, and the CARRY4 story
   especially will move.
-- **Phase 2 is not started** — no on-demand controller, no graceful degradation
-  against fault density, no approximate-arithmetic study.
+- **The adaptive controller starts cold.** It resets to its floor each trial and
+  must observe detections before escalating, so the first faults in a burst are
+  met at the lower level. A reactive scheme cannot do better; a predictive one
+  would need a fault-rate model this work does not have.
+- **No approximate-arithmetic study.** The approximation-meets-reliability
+  question (does inexactness buy robustness?) is untouched.
+- **All three levels are resident.** Partial reconfiguration is the framing, not
+  something demonstrated.
 
 ## Layout
 

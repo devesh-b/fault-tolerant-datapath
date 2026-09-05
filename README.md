@@ -34,6 +34,26 @@ the injection primitive it borrows from is
 
 ![coverage vs overhead](results/coverage_vs_overhead.png)
 
+## Phase 2 — on-demand reliability
+
+A small fault-free controller measures fault density and picks a protection
+level: retry-on-detect when things are quiet, execute-twice-and-compare when
+they are not.
+
+- **Double-execute records zero silent corruptions at every fault density
+  tested** — temporal redundancy closes the blind spot residue mod 3
+  structurally cannot reach.
+- **The controller is 1.8% of the design** (137 cells against 7422), so
+  triplicating it costs under 4% against 3.29× for triplicating everything.
+  That is DeSyRe's premise as two numbers rather than an assertion.
+- **Two results came out against the design.** Running unprotected is never
+  worth it — the cheap level is so cheap it dominates, so the controller's floor
+  had to be raised. And adaptivity does not beat a well-chosen fixed level: it
+  reaches 67% of the coverage gain for 73% of the cost. Its value is not
+  needing to know the fault density in advance.
+
+![degradation](results/degradation.png)
+
 ## Requirements
 
 - Yosys 0.68+ with ABC, SymbiYosys, z3 — all in the
